@@ -23,9 +23,14 @@ class Arm:
     description: str = ""
 
     def apply(self, base: ModelProfile) -> ModelProfile:
-        """Return ``base`` unchanged in placeholder mode."""
-        del self
-        return base
+        """Apply arm-specific hyperparameter overrides to the base model profile safely."""
+        if not self.overrides:
+            return base
+        
+        current_config = dict(base.model_extra or {})
+        current_config.update(self.overrides)
+        
+        return base.model_copy(update={"model_extra": current_config})
 
 
 ARM_REGISTRY: tuple[Arm, ...] = (
@@ -34,6 +39,30 @@ ARM_REGISTRY: tuple[Arm, ...] = (
         profile_name="direct",
         overrides={},
         description="Placeholder baseline arm.",
+    ),
+    Arm(
+        arm_id="direct.cold_precise",
+        profile_name="direct",
+        overrides={"temperature": 0.0, "top_p": 0.8},
+        description="Deterministic low temperature arm.",
+    ),
+    Arm(
+        arm_id="direct.balanced",
+        profile_name="direct",
+        overrides={"temperature": 0.4, "top_p": 0.9},
+        description="Balanced exploration profile.",
+    ),
+    Arm(
+        arm_id="direct.long_stable",
+        profile_name="direct",
+        overrides={"temperature": 0.2, "num_predict": 2048, "repeat_penalty": 1.1},
+        description="Extended token context stability.",
+    ),
+    Arm(
+        arm_id="direct.repeat_guard",
+        profile_name="direct",
+        overrides={"temperature": 0.3, "repeat_penalty": 1.4, "frequency_penalty": 0.5},
+        description="Strict penalty arm.",
     ),
 )
 
