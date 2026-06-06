@@ -1,0 +1,1605 @@
+✓ preflight — target=algorithm.py model=qwen3:4b max_attempts=6
+✓ bandit_select — context=general_rl|csv|eval_visual_timeout_boundary_guard_short_training|qwen3:4b|edit|a0|pf:none|p:0|d:na arm=direct.baseline
+╭─ thinking
+[2m│[0m Okay, let's tackle this problem. The user wants a complete runnable Actor-Critic reinforcement learning application in Python using only the standard library. No third-party packages. So first, I need to make sure everything is standard library only.
+[2m│[0m 
+[2m│[0m The environment is a 1D grid world from 0 to 9. Start at 0, goal at 9. Actions: left (0) and right (1). Clamp boundary transitions. Reward +10 at goal, -1 otherwise. Episode ends at goal or max_steps=40. Need to distinguish goal vs timeout.
+[2m│[0m 
+[2m│[0m Actor is tabular policy preferences. Critic is tabular state-value estimates. Training uses softmax action selection. Evaluation uses greedy. TD error for updates. Learning rates and discount factor need to be set reasonably. Random seed 42.
+[2m│[0m 
+[2m│[0m Training for 150 episodes. Print episode reward, steps, termination reason. Enforce max_steps. Then 10 evaluation episodes. Print rewards, steps, average reward and steps. Textual policy and value function visualizations. CSV report with columns: episode, total_reward, steps, termination.
+[2m│[0m 
+[2m│[0m First, I need to structure the code. Let's think about the components.
+[2m│[0m 
+[2m│[0m First, the environment. Since it's a 1D grid, I can create a simple environment class. But the user said standard library only, so no external packages. The environment can be a class that handles the state transitions.
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Create a 1D grid world with states 0..9". So the environment is a simple state space. Let's model it as a class.
+[2m│[0m 
+[2m│[0m But the user wants the entire code in a single file. So maybe the environment is a function or a class. Let's go with a class for the environment.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Actor-Critic specification: Actor must be represented by tabular policy preferences." So the actor is a dictionary mapping states to action probabilities. Critic is a dictionary mapping states to values.
+[2m│[0m 
+[2m│[0m Training uses TD error. So for each episode, we'll have a loop where we take actions, get rewards, update the actor and critic.
+[2m│[0m 
+[2m│[0m First, set up the environment. Let's define a class called GridWorldEnv.
+[2m│[0m 
+[2m│[0m The environment should have:
+[2m│[0m 
+[2m│[0m - states: 0 to 9
+[2m│[0m - start state: 0
+[2m│[0m - goal state: 9
+[2m│[0m - actions: 0 (left), 1 (right)
+[2m│[0m - reward function: +10 at goal, else -1
+[2m│[0m - max_steps: 40
+[2m│[0m 
+[2m│[0m The environment's step function will take an action, return next state, reward, done, info.
+[2m│[0m 
+[2m│[0m But since the user wants to use standard library, no external packages, so we can code this.
+[2m│[0m 
+[2m│[0m Wait, the problem says "No third-party packages", so we can't use any external libraries. So the environment is a simple class.
+[2m│[0m 
+[2m│[0m Let me sketch the environment:
+[2m│[0m 
+[2m│[0m class GridWorldEnv:
+[2m│[0m     def __init__(self):
+[2m│[0m         self.current_state = 0
+[2m│[0m         self.max_steps = 40
+[2m│[0m         self.steps = 0
+[2m│[0m 
+[2m│[0m     def reset(self):
+[2m│[0m         self.current_state = 0
+[2m│[0m         self.steps = 0
+[2m│[0m         return self.current_state
+[2m│[0m 
+[2m│[0m     def step(self, action):
+[2m│[0m         self.steps += 1
+[2m│[0m         if self.steps > self.max_steps:
+[2m│[0m             done = True
+[2m│[0m             reward = -1
+[2m│[0m         else:
+[2m│[0m             # action 0: left, 1: right
+[2m│[0m             if action == 0:
+[2m│[0m                 next_state = max(0, self.current_state - 1)
+[2m│[0m             else:
+[2m│[0m                 next_state = min(9, self.current_state + 1)
+[2m│[0m             # Check if next_state is goal
+[2m│[0m             if next_state == 9:
+[2m│[0m                 done = True
+[2m│[0m                 reward = 10
+[2m│[0m             else:
+[2m│[0m                 done = False
+[2m│[0m                 reward = -1
+[2m│[0m             self.current_state = next_state
+[2m│[0m         return self.current_state, reward, done
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Clamp boundary transitions". So when moving left from 0, stay at 0. Right from 9, stay at 9.
+[2m│[0m 
+[2m│[0m But in the step function, when action is 0 (left), next_state = max(0, current_state -1). Similarly for right.
+[2m│[0m 
+[2m│[0m But the environment's step function should return next_state, reward, done, info.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Episode terminates at goal or max_steps=40". So if steps exceed max_steps, then done is True, but it's a timeout.
+[2m│[0m 
+[2m│[0m Wait, the problem says: "Episode terminates at goal or max_steps=40". So max_steps is 40, meaning that after 40 steps, the episode ends. But the initial state is step 0. So the environment has 40 steps max.
+[2m│[0m 
+[2m│[0m Wait, the user says "Enforce max_steps in every loop". So the environment should have a max_steps parameter.
+[2m│[0m 
+[2m│[0m Let me think: when the environment is reset, steps=0. Each step increments steps. After 40 steps, the episode ends (timeout).
+[2m│[0m 
+[2m│[0m So in the step function, if steps >= 40, then done is True and reward is -1 (but the problem says reward is -1 otherwise, so timeout is a termination with reward -1? Wait, the problem says "reward is +10 at goal and -1 otherwise". So when the episode ends due to timeout, the reward is -1? Or is the timeout a separate termination with a different reward?
+[2m│[0m 
+[2m│[0m Wait, the problem states: "Reward is +10 at goal and -1 otherwise." So "otherwise" means all transitions except when reaching the goal. So when the episode ends (goal reached), the reward is +10. When it ends due to timeout (max_steps), the reward is -1? Or is the timeout a termination without a reward?
+[2m│[0m 
+[2m│[0m Hmm, the problem says "Episode terminates at goal or max_steps=40". So the episode ends when the agent reaches goal (with reward +10) or after 40 steps (timeout, with reward -1? Or the reward for the last step is -1, and the episode ends with no additional reward).
+[2m│[0m 
+[2m│[0m Wait, the problem says: "Reward is +10 at goal and -1 otherwise." So "otherwise" refers to all other transitions. So when the agent takes an action that leads to the goal, the reward is +10. Otherwise, the reward is -1. The episode ends when the agent reaches the goal (so the last step gives +10) or when max_steps is reached (so after 40 steps, the episode ends, and the last step's reward is -1).
+[2m│[0m 
+[2m│[0m Wait, but the max_steps is 40. So the agent can take up to 40 steps. So the environment's step function would have the agent take an action, and if after 40 steps, the episode ends.
+[2m│[0m 
+[2m│[0m Wait, the problem says: "Enforce max_steps in every loop". So the code must not let the episode go beyond 40 steps.
+[2m│[0m 
+[2m│[0m Let me model the environment as follows:
+[2m│[0m 
+[2m│[0m The environment starts at state 0. Each step, the agent takes an action (0 or 1). The state transitions as per the grid. The episode ends when the agent reaches state 9 (goal) or after 40 steps.
+[2m│[0m 
+[2m│[0m So in the step function, the number of steps is tracked. After 40 steps, the episode ends with a timeout.
+[2m│[0m 
+[2m│[0m But the reward for the step that causes the timeout would be -1 (since it's not the goal). Wait, the problem says "reward is +10 at goal and -1 otherwise". So when the agent is in the goal state, the reward is +10. Otherwise, the reward is -1.
+[2m│[0m 
+[2m│[0m Wait, perhaps the reward is given after each step. So when the agent moves to the goal state, the reward is +10. Otherwise, -1.
+[2m│[0m 
+[2m│[0m So the environment's step function returns the next state, the reward for that step, and whether the episode is done.
+[2m│[0m 
+[2m│[0m So for the GridWorldEnv:
+[2m│[0m 
+[2m│[0m - reset() sets current_state to 0, steps to 0.
+[2m│[0m 
+[2m│[0m - step(action) increments steps by 1. If steps > 40, then done is True and reward is -1 (but the problem says max_steps=40, so maybe steps can't exceed 40).
+[2m│[0m 
+[2m│[0m Wait, the problem says "max_steps=40", so the episode ends after 40 steps. So the agent can take up to 40 actions.
+[2m│[0m 
+[2m│[0m So in step, steps is incremented, and if steps == 40, then done is True.
+[2m│[0m 
+[2m│[0m Wait, perhaps the environment should have max_steps as 40, so after 40 steps, the episode ends.
+[2m│[0m 
+[2m│[0m Let me define the environment as:
+[2m│[0m 
+[2m│[0m class GridWorldEnv:
+[2m│[0m     def __init__(self):
+[2m│[0m         self.state = 0
+[2m│[0m         self.steps = 0
+[2m│[0m         self.max_steps = 40
+[2m│[0m 
+[2m│[0m     def reset(self):
+[2m│[0m         self.state = 0
+[2m│[0m         self.steps = 0
+[2m│[0m         return self.state
+[2m│[0m 
+[2m│[0m     def step(self, action):
+[2m│[0m         self.steps += 1
+[2m│[0m         if self.steps > self.max_steps:
+[2m│[0m             done = True
+[2m│[0m             reward = -1
+[2m│[0m         else:
+[2m│[0m             if action == 0:
+[2m│[0m                 next_state = max(0, self.state - 1)
+[2m│[0m             else:
+[2m│[0m                 next_state = min(9, self.state + 1)
+[2m│[0m             if next_state == 9:
+[2m│[0m                 done = True
+[2m│[0m                 reward = 10
+[2m│[0m             else:
+[2m│[0m                 done = False
+[2m│[0m                 reward = -1
+[2m│[0m             self.state = next_state
+[2m│[0m         return next_state, reward, done
+[2m│[0m 
+[2m│[0m Wait, but in this code, when steps > max_steps, it's a timeout. But the max_steps is 40, so steps can't exceed 40. So maybe the code should check if steps >= max_steps.
+[2m│[0m 
+[2m│[0m Wait, the problem says "max_steps=40", so the episode ends after 40 steps. So the agent takes 40 steps. So steps starts at 0, after 40 steps, the episode ends.
+[2m│[0m 
+[2m│[0m So in the step function, when steps == max_steps, the episode ends.
+[2m│[0m 
+[2m│[0m Let me adjust:
+[2m│[0m 
+[2m│[0m In step:
+[2m│[0m 
+[2m│[0m self.steps += 1
+[2m│[0m 
+[2m│[0m if self.steps > self.max_steps:
+[2m│[0m     done = True
+[2m│[0m     reward = -1
+[2m│[0m else:
+[2m│[0m     ... compute next_state ...
+[2m│[0m 
+[2m│[0m But the problem says "max_steps=40", so the episode ends when steps reach 40. So perhaps the environment should have max_steps=40, and the step function increments steps, and if steps == max_steps, then done is True.
+[2m│[0m 
+[2m│[0m Wait, the problem says: "Episode terminates at goal or max_steps=40". So the episode ends when the agent reaches the goal (state 9) or when the number of steps reaches 40.
+[2m│[0m 
+[2m│[0m So in the step function:
+[2m│[0m 
+[2m│[0m After taking an action, if the agent has taken 40 steps (i.e., steps == 40), then the episode ends with a timeout.
+[2m│[0m 
+[2m│[0m But the problem says "max_steps=40", so the agent can take up to 40 steps.
+[2m│[0m 
+[2m│[0m So the environment's step function:
+[2m│[0m 
+[2m│[0m - steps starts at 0.
+[2m│[0m 
+[2m│[0m - Each step increments steps by 1.
+[2m│[0m 
+[2m│[0m - If steps == 40, then done is True (timeout).
+[2m│[0m 
+[2m│[0m - Otherwise, proceed.
+[2m│[0m 
+[2m│[0m So the code for step:
+[2m│[0m 
+[2m│[0m def step(self, action):
+[2m│[0m     self.steps += 1
+[2m│[0m     if self.steps > self.max_steps:
+[2m│[0m         done = True
+[2m│[0m         reward = -1
+[2m│[0m     else:
+[2m│[0m         # compute next state
+[2m│[0m         if action == 0:
+[2m│[0m             next_state = max(0, self.state - 1)
+[2m│[0m         else:
+[2m│[0m             next_state = min(9, self.state + 1)
+[2m│[0m         if next_state == 9:
+[2m│[0m             done = True
+[2m│[0m             reward = 10
+[2m│[0m         else:
+[2m│[0m             done = False
+[2m│[0m             reward = -1
+[2m│[0m         self.state = next_state
+[2m│[0m     return next_state, reward, done
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Clamp boundary transitions". So when moving left from 0, stay at 0. Right from 9, stay at 9.
+[2m│[0m 
+[2m│[0m In the code above, next_state is computed with max and min, so that's clamped.
+[2m│[0m 
+[2m│[0m Now, the actor and critic.
+[2m│[0m 
+[2m│[0m Actor is tabular policy preferences. So for each state, the actor has a policy that gives the probability of each action. Since it's a tabular policy, we can have a dictionary: actor[state] = [prob_action0, prob_action1]
+[2m│[0m 
+[2m│[0m Critic is tabular state-value estimates: critic[state] = value.
+[2m│[0m 
+[2m│[0m Training uses TD error. So for each episode, we do:
+[2m│[0m 
+[2m│[0m - For each state, the agent selects an action via softmax.
+[2m│[0m 
+[2m│[0m - Then, the next state and reward are obtained.
+[2m│[0m 
+[2m│[0m - The TD error is (reward + gamma * critic[next_state]) - critic[current_state]
+[2m│[0m 
+[2m│[0m - Update critic: critic[current_state] += alpha * TD_error
+[2m│[0m 
+[2m│[0m - Update actor: for each action, the probability is updated via the gradient of the policy.
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Use TD error to update both actor and critic".
+[2m│[0m 
+[2m│[0m In Actor-Critic methods, like A2C or PPO, but here it's a simple tabular setup.
+[2m│[0m 
+[2m│[0m The standard approach for TD learning in Actor-Critic: the critic updates using TD error, and the actor updates using the policy gradient.
+[2m│[0m 
+[2m│[0m But the problem specifies "Use TD error to update both actor and critic".
+[2m│[0m 
+[2m│[0m So for each step:
+[2m│[0m 
+[2m│[0m 1. Select action via softmax: action = argmax(softmax(policy[state] * temperature))
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Training must use softmax action selection". So the actor's policy is a probability distribution over actions, generated via softmax.
+[2m│[0m 
+[2m│[0m So for each state s, the actor has a vector of action probabilities: [p0, p1], where p0 + p1 = 1.
+[2m│[0m 
+[2m│[0m The softmax selection: the action is chosen with probability proportional to exp(θ_s * action), where θ_s is the policy parameter for state s.
+[2m│[0m 
+[2m│[0m But since it's tabular, maybe the policy is a dictionary of parameters. Wait, but the problem says "Actor must be represented by tabular policy preferences". So perhaps the actor is a dictionary where each state maps to a list of action probabilities.
+[2m│[0m 
+[2m│[0m Wait, the problem says "tabular policy preferences". So for each state, the policy is a preference over actions. Maybe it's a list of action probabilities.
+[2m│[0m 
+[2m│[0m But the user wants to use softmax action selection. So the actor's policy is a probability distribution over actions, generated via softmax.
+[2m│[0m 
+[2m│[0m So for each state s, the actor has a parameter vector θ_s, and the action probabilities are softmax(θ_s).
+[2m│[0m 
+[2m│[0m But in tabular, maybe θ_s is a scalar for each state? Or a vector.
+[2m│[0m 
+[2m│[0m Wait, the problem says "tabular policy preferences". So perhaps for each state, the actor has a preference score for each action. For two actions, it's a vector of two scores.
+[2m│[0m 
+[2m│[0m But the problem says "tabular", so the actor is a dictionary where keys are states and values are lists of action probabilities.
+[2m│[0m 
+[2m│[0m Wait, the problem states: "Actor must be represented by tabular policy preferences". So maybe the policy is a table of preferences, which are then converted to probabilities via softmax.
+[2m│[0m 
+[2m│[0m So for each state s, the actor has a list of two numbers (preferences), which are then converted to probabilities via softmax.
+[2m│[0m 
+[2m│[0m But the problem says "Training must use softmax action selection". So during training, the agent selects actions using softmax over the preferences.
+[2m│[0m 
+[2m│[0m So the actor's state representation is a dictionary: actor = {state: [pref0, pref1]}
+[2m│[0m 
+[2m│[0m Then, the action probabilities are [exp(pref0)/sum, exp(pref1)/sum]
+[2m│[0m 
+[2m│[0m The critic is a dictionary: critic = {state: value}
+[2m│[0m 
+[2m│[0m Learning rates: need to choose reasonable values. Let's say alpha_critic = 0.1 (for critic updates), alpha_actor = 0.01 (for actor updates). Gamma (discount factor) = 0.9.
+[2m│[0m 
+[2m│[0m The TD error for critic: (reward + gamma * critic[next_state]) - critic[current_state]
+[2m│[0m 
+[2m│[0m For actor: the update is based on the policy gradient. The standard approach for actor in TD is to use the following:
+[2m│[0m 
+[2m│[0m delta = (reward + gamma * critic[next_state]) - critic[current_state]
+[2m│[0m 
+[2m│[0m actor_update = alpha_actor * delta * (action_prob) * (1 - action_prob) ? Not sure.
+[2m│[0m 
+[2m│[0m Wait, in the context of tabular policy, for two actions, the actor's update could be:
+[2m│[0m 
+[2m│[0m For each state s, the action probabilities are p0 and p1.
+[2m│[0m 
+[2m│[0m The gradient of the policy with respect to the preference scores is:
+[2m│[0m 
+[2m│[0m d(p0)/dθ = p0*(1 - p0) (for softmax)
+[2m│[0m 
+[2m│[0m But perhaps the problem expects a simpler approach.
+[2m│[0m 
+[2m│[0m Alternatively, since it's a small environment, the actor can be updated using the TD error multiplied by the action probability.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Use TD error to update both actor and critic".
+[2m│[0m 
+[2m│[0m In the standard TD Actor-Critic (like A2C), the critic updates using TD error, and the actor updates using the TD error multiplied by the action probability.
+[2m│[0m 
+[2m│[0m But for simplicity, let's model it as follows:
+[2m│[0m 
+[2m│[0m For each episode:
+[2m│[0m 
+[2m│[0m - For each state s:
+[2m│[0m 
+[2m│[0m    - Compute action probabilities via softmax on the actor's preferences.
+[2m│[0m 
+[2m│[0m    - Select action a.
+[2m│[0m 
+[2m│[0m    - Get next state s', reward r.
+[2m│[0m 
+[2m│[0m    - Compute TD error: delta = r + gamma * critic[s'] - critic[s]
+[2m│[0m 
+[2m│[0m    - Update critic[s] = critic[s] + alpha_critic * delta
+[2m│[0m 
+[2m│[0m    - Update actor[s] for action a: actor[s][a] += alpha_actor * delta * (1 - actor[s][a]) ?
+[2m│[0m 
+[2m│[0m Wait, no. The actor update in policy gradient methods is usually the gradient of the expected return with respect to the policy parameters.
+[2m│[0m 
+[2m│[0m But for simplicity, since the problem says "Use TD error to update both actor and critic", and given the small environment, perhaps the actor is updated using the following:
+[2m│[0m 
+[2m│[0m The actor's preference for action a is increased by alpha_actor * delta * (probability of action a).
+[2m│[0m 
+[2m│[0m Wait, but the problem states "tabular policy preferences", so maybe the actor is a dictionary of action preferences (scores), and the probabilities are computed via softmax.
+[2m│[0m 
+[2m│[0m Let me think: for each state s, the actor has a list of two scores: [score0, score1]. The action probabilities are [exp(score0)/sum, exp(score1)/sum].
+[2m│[0m 
+[2m│[0m During training, for each step:
+[2m│[0m 
+[2m│[0m - Compute the action probabilities.
+[2m│[0m 
+[2m│[0m - Select action a.
+[2m│[0m 
+[2m│[0m - Compute TD error delta.
+[2m│[0m 
+[2m│[0m - Update critic: critic[s] += alpha_critic * delta
+[2m│[0m 
+[2m│[0m - Update actor: score_a += alpha_actor * delta * (probability of action a)
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Use TD error to update both actor and critic". So the actor update is proportional to the TD error and the action probability.
+[2m│[0m 
+[2m│[0m Alternatively, the actor's score for action a is updated by alpha_actor * delta * (probability of action a).
+[2m│[0m 
+[2m│[0m But in the context of the problem, the user wants a simple implementation.
+[2m│[0m 
+[2m│[0m Let's proceed with the following:
+[2m│[0m 
+[2m│[0m - Actor is a dictionary: actor = {state: [score0, score1]}
+[2m│[0m 
+[2m│[0m - For each state s, the action probabilities are [exp(score0)/(exp(score0) + exp(score1)), exp(score1)/(exp(score0) + exp(score1))]
+[2m│[0m 
+[2m│[0m - During training, for each step:
+[2m│[0m 
+[2m│[0m    - Compute action probabilities.
+[2m│[0m 
+[2m│[0m    - Select action a (using random choice based on probabilities).
+[2m│[0m 
+[2m│[0m    - Compute TD error delta = r + gamma * critic[s'] - critic[s]
+[2m│[0m 
+[2m│[0m    - Update critic[s] = critic[s] + alpha_critic * delta
+[2m│[0m 
+[2m│[0m    - Update actor[s][a] += alpha_actor * delta * (probability of action a)
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Training must use softmax action selection". So the action selection is done via softmax, which is what we have.
+[2m│[0m 
+[2m│[0m The problem also says "Evaluation must use greedy action selection". So during evaluation, the agent selects the action with the highest probability (i.e., the action with the highest score).
+[2m│[0m 
+[2m│[0m Now, the code structure.
+[2m│[0m 
+[2m│[0m We need to:
+[2m│[0m 
+[2m│[0m 1. Define the environment.
+[2m│[0m 
+[2m│[0m 2. Initialize actor and critic dictionaries.
+[2m│[0m 
+[2m│[0m 3. Set learning rates, gamma, seed.
+[2m│[0m 
+[2m│[0m 4. Train for 150 episodes.
+[2m│[0m 
+[2m│[0m 5. Evaluate after training.
+[2m│[0m 
+[2m│[0m 6. Print visualizations.
+[2m│[0m 
+[2m│[0m 7. Write CSV.
+[2m│[0m 
+[2m│[0m Let's outline the code.
+[2m│[0m 
+[2m│[0m First, imports: from random import seed, choice, uniform. But the problem says standard library only. So no third-party.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Python standard library only". So no external packages. So the code must use only standard library modules.
+[2m│[0m 
+[2m│[0m So imports:
+[2m│[0m 
+[2m│[0m import random
+[2m│[0m import math
+[2m│[0m import csv
+[2m│[0m from typing import Dict, List, Tuple, Optional
+[2m│[0m 
+[2m│[0m Wait, the user specified "modern builtin generics (list[int], dict[str, object])". So we need to use type hints with generics.
+[2m│[0m 
+[2m│[0m So the code should have:
+[2m│[0m 
+[2m│[0m from typing import List, Dict, Optional, Tuple, Any
+[2m│[0m 
+[2m│[0m But the problem says "Use modern builtin generics (list[int], dict[str, object])".
+[2m│[0m 
+[2m│[0m So for example, the environment's state is int.
+[2m│[0m 
+[2m│[0m Let's proceed.
+[2m│[0m 
+[2m│[0m First, the environment class.
+[2m│[0m 
+[2m│[0m Then, the actor and critic as dictionaries.
+[2m│[0m 
+[2m│[0m The training loop.
+[2m│[0m 
+[2m│[0m Let's code step by step.
+[2m│[0m 
+[2m│[0m First, the environment.
+[2m│[0m 
+[2m│[0m class GridWorldEnv:
+[2m│[0m     def __init__(self, max_steps=40):
+[2m│[0m         self.state = 0
+[2m│[0m         self.steps = 0
+[2m│[0m         self.max_steps = max_steps
+[2m│[0m 
+[2m│[0m     def reset(self):
+[2m│[0m         self.state = 0
+[2m│[0m         self.steps = 0
+[2m│[0m         return self.state
+[2m│[0m 
+[2m│[0m     def step(self, action: int) -> Tuple[int, float, bool]:
+[2m│[0m         self.steps += 1
+[2m│[0m         if self.steps > self.max_steps:
+[2m│[0m             done = True
+[2m│[0m             reward = -1
+[2m│[0m         else:
+[2m│[0m             if action == 0:
+[2m│[0m                 next_state = max(0, self.state - 1)
+[2m│[0m             else:
+[2m│[0m                 next_state = min(9, self.state + 1)
+[2m│[0m             if next_state == 9:
+[2m│[0m                 done = True
+[2m│[0m                 reward = 10
+[2m│[0m             else:
+[2m│[0m                 done = False
+[2m│[0m                 reward = -1
+[2m│[0m             self.state = next_state
+[2m│[0m         return next_state, reward, done
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Clamp boundary transitions". So when moving left from 0, stay at 0. Right from 9, stay at 9. The code uses max and min, so that's correct.
+[2m│[0m 
+[2m│[0m Next, the actor and critic.
+[2m│[0m 
+[2m│[0m Actor is a dictionary where keys are states (int), values are lists of two floats (scores for actions 0 and 1).
+[2m│[0m 
+[2m│[0m Critic is a dictionary where keys are states (int), values are floats.
+[2m│[0m 
+[2m│[0m Learning parameters:
+[2m│[0m 
+[2m│[0m gamma = 0.9 (discount factor)
+[2m│[0m 
+[2m│[0m alpha_critic = 0.1 (critic learning rate)
+[2m│[0m 
+[2m│[0m alpha_actor = 0.01 (actor learning rate)
+[2m│[0m 
+[2m│[0m random.seed(42)
+[2m│[0m 
+[2m│[0m Training loop:
+[2m│[0m 
+[2m│[0m For each episode in 150:
+[2m│[0m 
+[2m│[0m    - Reset environment.
+[2m│[0m 
+[2m│[0m    - Initialize current state.
+[2m│[0m 
+[2m│[0m    - For each step up to max_steps:
+[2m│[0m 
+[2m│[0m         - Select action via softmax.
+[2m│[0m 
+[2m│[0m         - Get next state, reward, done.
+[2m│[0m 
+[2m│[0m         - Compute TD error.
+[2m│[0m 
+[2m│[0m         - Update critic.
+[2m│[0m 
+[2m│[0m         - Update actor.
+[2m│[0m 
+[2m│[0m    - Record episode reward, steps, termination reason.
+[2m│[0m 
+[2m│[0m After training, evaluate for 10 episodes.
+[2m│[0m 
+[2m│[0m Then, print textual policy and value function.
+[2m│[0m 
+[2m│[0m Write CSV.
+[2m│[0m 
+[2m│[0m Let's code the training loop.
+[2m│[0m 
+[2m│[0m First, initialize actor and critic.
+[2m│[0m 
+[2m│[0m actor: Dict[int, List[float]] = {s: [0.0, 0.0] for s in range(10)}
+[2m│[0m critic: Dict[int, float] = {s: 0.0 for s in range(10)}
+[2m│[0m 
+[2m│[0m But the problem says "tabular policy preferences". So the actor's policy is a table of preferences (scores), which are then converted to probabilities via softmax.
+[2m│[0m 
+[2m│[0m In each step:
+[2m│[0m 
+[2m│[0m - Compute action probabilities.
+[2m│[0m 
+[2m│[0m - Select action.
+[2m│[0m 
+[2m│[0m - Get next state and reward.
+[2m│[0m 
+[2m│[0m - Compute TD error.
+[2m│[0m 
+[2m│[0m - Update critic.
+[2m│[0m 
+[2m│[0m - Update actor.
+[2m│[0m 
+[2m│[0m Let's code the action selection.
+[2m│[0m 
+[2m│[0m For a given state s, the action probabilities are:
+[2m│[0m 
+[2m│[0m p0 = exp(actor[s][0]) / (exp(actor[s][0]) + exp(actor[s][1]))
+[2m│[0m p1 = 1 - p0
+[2m│[0m 
+[2m│[0m Then, select action with probability p0 for 0, p1 for 1.
+[2m│[0m 
+[2m│[0m But the problem says "Training must use softmax action selection".
+[2m│[0m 
+[2m│[0m So during training, the agent selects actions via softmax.
+[2m│[0m 
+[2m│[0m The code for action selection:
+[2m│[0m 
+[2m│[0m def select_action(state: int, actor: Dict[int, List[float]], temperature: float = 1.0) -> int:
+[2m│[0m     scores = actor[state]
+[2m│[0m     exp_scores = [math.exp(score * temperature) for score in scores]
+[2m│[0m     probs = [exp_score / sum(exp_scores) for exp_score in exp_scores]
+[2m│[0m     return random.choices([0, 1], weights=probs, k=1)[0]
+[2m│[0m 
+[2m│[0m But the problem says "Use TD error to update both actor and critic". So the actor update is based on the TD error.
+[2m│[0m 
+[2m│[0m The standard policy gradient update for actor in TD is:
+[2m│[0m 
+[2m│[0m actor[s][a] += alpha_actor * delta * (probability of action a)
+[2m│[0m 
+[2m│[0m Wait, but in this case, the actor is a tabular policy, so for each state, we have two actions.
+[2m│[0m 
+[2m│[0m The TD error is delta = r + gamma * critic[s'] - critic[s]
+[2m│[0m 
+[2m│[0m The actor update for action a is:
+[2m│[0m 
+[2m│[0m actor[s][a] += alpha_actor * delta * (probability of action a)
+[2m│[0m 
+[2m│[0m But the problem says "Use TD error to update both actor and critic".
+[2m│[0m 
+[2m│[0m So for each step:
+[2m│[0m 
+[2m│[0m - Compute delta.
+[2m│[0m 
+[2m│[0m - Update critic[s] = critic[s] + alpha_critic * delta
+[2m│[0m 
+[2m│[0m - Update actor[s][a] += alpha_actor * delta * (probability of action a)
+[2m│[0m 
+[2m│[0m Wait, but the problem says "tabular policy preferences", so the actor's preferences are the scores, and the probabilities are computed via softmax.
+[2m│[0m 
+[2m│[0m Let's proceed.
+[2m│[0m 
+[2m│[0m Now, the code.
+[2m│[0m 
+[2m│[0m First, the environment class.
+[2m│[0m 
+[2m│[0m Then, the training loop.
+[2m│[0m 
+[2m│[0m We need to set up the random seed.
+[2m│[0m 
+[2m│[0m random.seed(42)
+[2m│[0m 
+[2m│[0m The training loop:
+[2m│[0m 
+[2m│[0m for episode in range(150):
+[2m│[0m     env = GridWorldEnv()
+[2m│[0m     state = env.reset()
+[2m│[0m     total_reward = 0
+[2m│[0m     steps = 0
+[2m│[0m     done = False
+[2m│[0m     while not done and steps < 40:
+[2m│[0m         # Select action via softmax
+[2m│[0m         action = select_action(state, actor)
+[2m│[0m         next_state, reward, done = env.step(action)
+[2m│[0m         total_reward += reward
+[2m│[0m         steps += 1
+[2m│[0m         # Compute TD error
+[2m│[0m         delta = reward + gamma * critic[next_state] - critic[state]
+[2m│[0m         # Update critic
+[2m│[0m         critic[state] += alpha_critic * delta
+[2m│[0m         # Update actor
+[2m│[0m         # Compute probability of selected action
+[2m│[0m         scores = actor[state]
+[2m│[0m         exp_scores = [math.exp(score) for score in scores]
+[2m│[0m         prob = exp_scores[action] / sum(exp_scores)
+[2m│[0m         actor[state][action] += alpha_actor * delta * prob
+[2m│[0m     # Record episode result
+[2m│[0m     # ...
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Enforce max_steps in every loop". So the episode stops at 40 steps.
+[2m│[0m 
+[2m│[0m In the code above, the while loop runs while not done and steps < 40. So steps starts at 0, and increments each step. After 40 steps, the loop breaks.
+[2m│[0m 
+[2m│[0m But the problem says "max_steps=40", so the episode ends after 40 steps.
+[2m│[0m 
+[2m│[0m The termination reason: if done is True (goal), then termination reason is "goal". Else, "timeout".
+[2m│[0m 
+[2m│[0m So for each episode, we need to record whether it terminated at goal or timeout.
+[2m│[0m 
+[2m│[0m Now, the select_action function.
+[2m│[0m 
+[2m│[0m But the problem says "Training must use softmax action selection". So the select_action function uses softmax.
+[2m│[0m 
+[2m│[0m Let's code select_action.
+[2m│[0m 
+[2m│[0m def select_action(state: int, actor: Dict[int, List[float]], temperature: float = 1.0) -> int:
+[2m│[0m     scores = actor[state]
+[2m│[0m     exp_scores = [math.exp(score) for score in scores]
+[2m│[0m     total = sum(exp_scores)
+[2m│[0m     probs = [exp_score / total for exp_score in exp_scores]
+[2m│[0m     return random.choices([0, 1], weights=probs, k=1)[0]
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Use TD error to update both actor and critic". So the actor update uses the probability of the selected action.
+[2m│[0m 
+[2m│[0m Now, the code for the training loop.
+[2m│[0m 
+[2m│[0m But the problem requires that the code runs directly when executed. So the main block.
+[2m│[0m 
+[2m│[0m Let's structure the code.
+[2m│[0m 
+[2m│[0m First, imports.
+[2m│[0m 
+[2m│[0m Then, the environment class.
+[2m│[0m 
+[2m│[0m Then, the actor and critic dictionaries.
+[2m│[0m 
+[2m│[0m Then, the training loop.
+[2m│[0m 
+[2m│[0m Then, the evaluation.
+[2m│[0m 
+[2m│[0m Then, the visualizations.
+[2m│[0m 
+[2m│[0m Then, the CSV.
+[2m│[0m 
+[2m│[0m Let's start coding.
+[2m│[0m 
+[2m│[0m First, imports:
+[2m│[0m 
+[2m│[0m from typing import Dict, List, Tuple, Optional, Any
+[2m│[0m import random
+[2m│[0m import math
+[2m│[0m import csv
+[2m│[0m from pathlib import Path
+[2m│[0m 
+[2m│[0m Wait, the problem says "CSV reporting: Write generation_report.csv to the current working directory. Use a relative path only."
+[2m│[0m 
+[2m│[0m So using pathlib is standard library.
+[2m│[0m 
+[2m│[0m But the problem says "Python 3.11+", so pathlib is available.
+[2m│[0m 
+[2m│[0m But the user might have a different version. However, the problem says "Python 3.11+", so we can use pathlib.
+[2m│[0m 
+[2m│[0m But the problem says "standard library only", so pathlib is standard.
+[2m│[0m 
+[2m│[0m Let's proceed.
+[2m│[0m 
+[2m│[0m Now, the environment class.
+[2m│[0m 
+[2m│[0m class GridWorldEnv:
+[2m│[0m     def __init__(self, max_steps: int = 40):
+[2m│[0m         self.state = 0
+[2m│[0m         self.steps = 0
+[2m│[0m         self.max_steps = max_steps
+[2m│[0m 
+[2m│[0m     def reset(self) -> int:
+[2m│[0m         self.state = 0
+[2m│[0m         self.steps = 0
+[2m│[0m         return self.state
+[2m│[0m 
+[2m│[0m     def step(self, action: int) -> Tuple[int, float, bool]:
+[2m│[0m         self.steps += 1
+[2m│[0m         if self.steps > self.max_steps:
+[2m│[0m             done = True
+[2m│[0m             reward = -1
+[2m│[0m         else:
+[2m│[0m             if action == 0:
+[2m│[0m                 next_state = max(0, self.state - 1)
+[2m│[0m             else:
+[2m│[0m                 next_state = min( 9, self.state + 1)
+[2m│[0m             if next_state == 9:
+[2m│[0m                 done = True
+[2m│[0m                 reward = 10
+[2m│[0m             else:
+[2m│[0m                 done = False
+[2m│[0m                 reward = -1
+[2m│[0m             self.state = next_state
+[2m│[0m         return next_state, reward, done
+[2m│[0m 
+[2m│[0m Wait, the problem says "Clamp boundary transitions". So when moving left from 0, stay at 0. Right from 9, stay at 9. The code uses max and min, so that's correct.
+[2m│[0m 
+[2m│[0m But in the step function, the next_state is computed correctly.
+[2m│[0m 
+[2m│[0m Wait, the problem says the states are 0..9. So the max state is 9.
+[2m│[0m 
+[2m│[0m In the code, when action is 1 (right), next_state = min(9, self.state + 1). So if self.state is 9, next_state is 9.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, the actor and critic.
+[2m│[0m 
+[2m│[0m We'll initialize them as dictionaries.
+[2m│[0m 
+[2m│[0m But the problem says "tabular policy preferences". So for each state, the actor has a list of two preferences (scores).
+[2m│[0m 
+[2m│[0m The critic has a value for each state.
+[2m│[0m 
+[2m│[0m Let's define the learning parameters.
+[2m│[0m 
+[2m│[0m gamma = 0.9
+[2m│[0m 
+[2m│[0m alpha_critic = 0.1
+[2m│[0m 
+[2m│[0m alpha_actor = 0.01
+[2m│[0m 
+[2m│[0m random.seed(42)
+[2m│[0m 
+[2m│[0m Now, the training loop.
+[2m│[0m 
+[2m│[0m We'll create a list to store episode results.
+[2m│[0m 
+[2m│[0m Then, after training, evaluate.
+[2m│[0m 
+[2m│[0m Let's code the select_action function.
+[2m│[0m 
+[2m│[0m def select_action(state: int, actor: Dict[int, List[float]], temperature: float = 1.0) -> int:
+[2m│[0m     scores = actor[state]
+[2m│[0m     exp_scores = [math.exp(score) for score in scores]
+[2m│[0m     total = sum(exp_scores)
+[2m│[0m     probs = [exp_score / total for exp_score in exp_scores]
+[2m│[0m     return random.choices([0, 1], weights=probs, k=1)[0]
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Use TD error to update both actor and critic". So the actor update uses the probability of the selected action.
+[2m│[0m 
+[2m│[0m Now, the training loop.
+[2m│[0m 
+[2m│[0m We need to loop 150 episodes.
+[2m│[0m 
+[2m│[0m For each episode:
+[2m│[0m 
+[2m│[0m - Reset environment.
+[2m│[0m 
+[2m│[0m - Initialize current state.
+[2m│[0m 
+[2m│[0m - For each step up to max_steps (40):
+[2m│[0m 
+[2m│[0m    - Select action.
+[2m│[0m 
+[2m│[0m    - Step environment.
+[2m│[0m 
+[2m│[0m    - Compute TD error.
+[2m│[0m 
+[2m│[0m    - Update critic.
+[2m│[0m 
+[2m│[0m    - Update actor.
+[2m│[0m 
+[2m│[0m - Record episode reward, steps, termination reason.
+[2m│[0m 
+[2m│[0m The termination reason is "goal" if done is True and next_state is 9, else "timeout" if steps == 40.
+[2m│[0m 
+[2m│[0m Wait, in the environment, when done is True, it's either goal or timeout.
+[2m│[0m 
+[2m│[0m In the step function, done is True if the next state is 9 (goal) or steps > max_steps (timeout).
+[2m│[0m 
+[2m│[0m So in the training loop, after each step, we check done.
+[2m│[0m 
+[2m│[0m Let's code the training loop.
+[2m│[0m 
+[2m│[0m But the problem says "Enforce max_steps in every loop". So the code must not let the episode go beyond 40 steps.
+[2m│[0m 
+[2m│[0m Now, the code for the training loop.
+[2m│[0m 
+[2m│[0m We'll create a list to store the episode results.
+[2m│[0m 
+[2m│[0m episodes = []
+[2m│[0m for episode in range(150):
+[2m│[0m     env = GridWorldEnv()
+[2m│[0m     state = env.reset()
+[2m│[0m     total_reward = 0
+[2m│[0m     steps = 0
+[2m│[0m     done = False
+[2m│[0m     while not done and steps < 40:
+[2m│[0m         action = select_action(state, actor)
+[2m│[0m         next_state, reward, done = env.step(action)
+[2m│[0m         total_reward += reward
+[2m│[0m         steps += 1
+[2m│[0m         # Compute TD error
+[2m│[0m         delta = reward + gamma * critic[next_state] - critic[state]
+[2m│[0m         # Update critic
+[2m│[0m         critic[state] += alpha_critic * delta
+[2m│[0m         # Update actor
+[2m│[0m         scores = actor[state]
+[2m│[0m         exp_scores = [math.exp(score) for score in scores]
+[2m│[0m         prob = exp_scores[action] / sum(exp_scores)
+[2m│[0m         actor[state][action] += alpha_actor * delta * prob
+[2m│[0m     # Record episode result
+[2m│[0m     termination = "goal" if done and next_state == 9 else "timeout"
+[2m│[0m     episodes.append({
+[2m│[0m         "episode": episode + 1,
+[2m│[0m         "total_reward": total_reward,
+[2m│[0m         "steps": steps,
+[2m│[0m         "termination": termination
+[2m│[0m     })
+[2m│[0m 
+[2m│[0m Wait, but in the environment, when done is True, next_state is the goal (9) or timeout.
+[2m│[0m 
+[2m│[0m Wait, in the step function, when done is True, it's either because next_state is 9 (goal) or steps > max_steps (timeout).
+[2m│[0m 
+[2m│[0m So in the code, after the step, done is True.
+[2m│[0m 
+[2m│[0m So in the training loop, after the step, done is True.
+[2m│[0m 
+[2m│[0m So the termination reason is "goal" if next_state == 9, else "timeout".
+[2m│[0m 
+[2m│[0m But the problem says "Clearly distinguish goal termination from timeout termination".
+[2m│[0m 
+[2m│[0m So for each episode, after the loop, we check:
+[2m│[0m 
+[2m│[0m if done is True and next_state == 9: termination = "goal"
+[2m│[0m 
+[2m│[0m else: termination = "timeout"
+[2m│[0m 
+[2m│[0m But in the code, after the while loop, the last step's done is True.
+[2m│[0m 
+[2m│[0m Wait, in the while loop, the condition is "not done and steps < 40". So when done is True, the loop breaks.
+[2m│[0m 
+[2m│[0m So after the loop, we can check:
+[2m│[0m 
+[2m│[0m if next_state == 9: termination = "goal"
+[2m│[0m 
+[2m│[0m else: termination = "timeout"
+[2m│[0m 
+[2m│[0m But in the code, after the step, done is True, so the episode ends.
+[2m│[0m 
+[2m│[0m So in the training loop, after the step, done is True.
+[2m│[0m 
+[2m│[0m So the termination reason is "goal" if next_state == 9, else "timeout".
+[2m│[0m 
+[2m│[0m So the code for recording:
+[2m│[0m 
+[2m│[0m if next_state == 9:
+[2m│[0m     termination = "goal"
+[2m│[0m else:
+[2m│[0m     termination = "timeout"
+[2m│[0m 
+[2m│[0m But in the code, the next_state is the state after the step.
+[2m│[0m 
+[2m│[0m Wait, in the step function, the next_state is the state after taking the action.
+[2m│[0m 
+[2m│[0m So for the episode, when the agent reaches state 9, the episode ends with termination "goal".
+[2m│[0m 
+[2m│[0m Otherwise, if steps == 40, termination is "timeout".
+[2m│[0m 
+[2m│[0m So in the code, after the while loop, we can check:
+[2m│[0m 
+[2m│[0m if next_state == 9:
+[2m│[0m     termination = "goal"
+[2m│[0m else:
+[2m│[0m     termination = "timeout"
+[2m│[0m 
+[2m│[0m But in the code, the next_state is the last state after the step.
+[2m│[0m 
+[2m│[0m Wait, in the training loop, the last step is when done is True.
+[2m│[0m 
+[2m│[0m So after the while loop, we have:
+[2m│[0m 
+[2m│[0m next_state, reward, done = env.step(action)
+[2m│[0m 
+[2m│[0m So the last step's next_state is the state where the episode ended.
+[2m│[0m 
+[2m│[0m So for the episode, if next_state == 9, then termination is "goal", else "timeout".
+[2m│[0m 
+[2m│[0m So the code for recording:
+[2m│[0m 
+[2m│[0m termination = "goal" if next_state == 9 else "timeout"
+[2m│[0m 
+[2m│[0m But in the code, the next_state is the state after the step.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, the evaluation loop.
+[2m│[0m 
+[2m│[0m After training, run 10 episodes with greedy action selection.
+[2m│[0m 
+[2m│[0m Greedy action selection: select the action with the highest probability (i.e., the action with the highest score).
+[2m│[0m 
+[2m│[0m So for each state, the greedy action is the one with the highest score.
+[2m│[0m 
+[2m│[0m But the problem says "Evaluation must use greedy action selection".
+[2m│[0m 
+[2m│[0m So during evaluation, the agent selects the action with the highest score (no softmax).
+[2m│[0m 
+[2m│[0m So the evaluation function:
+[2m│[0m 
+[2m│[0m def evaluate_greedy(env, actor, critic):
+[2m│[0m     # Run 10 episodes
+[2m│[0m     total_rewards = []
+[2m│[0m     steps_list = []
+[2m│[0m     for _ in range(10):
+[2m│[0m         env = GridWorldEnv()
+[2m│[0m         state = env.reset()
+[2m│[0m         total_reward = 0
+[2m│[0m         steps = 0
+[2m│[0m         done = False
+[2m│[0m         while not done:
+[2m│[0m             # Greedy action selection
+[2m│[0m             scores = actor[state]
+[2m│[0m             action = 0 if scores[0] > scores[1] else 1
+[2m│[0m             next_state, reward, done = env.step(action)
+[2m│[0m             total_reward += reward
+[2m│[0m             steps += 1
+[2m│[0m         total_rewards.append(total_reward)
+[2m│[0m         steps_list.append(steps)
+[2m│[0m     return total_rewards, steps_list
+[2m│[0m 
+[2m│[0m Wait, but the problem says "Run 10 greedy evaluation episodes after training".
+[2m│[0m 
+[2m│[0m So the evaluation loop.
+[2m│[0m 
+[2m│[0m Then, print the average reward and steps.
+[2m│[0m 
+[2m│[0m Now, the visualizations.
+[2m│[0m 
+[2m│[0m Textual policy visualization for each state.
+[2m│[0m 
+[2m│[0m For each state s, print the action with the highest probability (for training) or the greedy action.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Print a textual policy visualization for each state".
+[2m│[0m 
+[2m│[0m So for each state s, print the action probabilities (or the preferred action).
+[2m│[0m 
+[2m│[0m For example:
+[2m│[0m 
+[2m│[0m State 0: [0.2, 0.8] → action 1 (right)
+[2m│[0m 
+[2m│[0m But the problem says "textual policy visualization".
+[2m│[0m 
+[2m│[0m So for each state, print the action with the highest probability.
+[2m│[0m 
+[2m│[0m But during training, the policy is via softmax, so the probabilities are computed.
+[2m│[0m 
+[2m│[0m But the problem says "Print a textual policy visualization for each state".
+[2m│[0m 
+[2m│[0m So for each state s, print the action that the policy prefers (the one with higher probability).
+[2m│[0m 
+[2m│[0m Alternatively, print the probabilities.
+[2m│[0m 
+[2m│[0m Let's do:
+[2m│[0m 
+[2m│[0m For each state s in 0-9:
+[2m│[0m 
+[2m│[0m print(f"State {s}: Action {action} with probability {prob:.2f}")
+[2m│[0m 
+[2m│[0m But the problem says "textual policy visualization".
+[2m│[0m 
+[2m│[0m So perhaps for each state, print the preferred action.
+[2m│[0m 
+[2m│[0m But the problem says "textual policy visualization", so maybe a string like:
+[2m│[0m 
+[2m│[0m State 0: Right (prob 0.65)
+[2m│[0m 
+[2m│[0m But the user wants it concise.
+[2m│[0m 
+[2m│[0m Let's code it as:
+[2m│[0m 
+[2m│[0m print("Policy visualization:")
+[2m│[0m for state in range(10):
+[2m│[0m     scores = actor[state]
+[2m│[0m     probs = [math.exp(score) / sum(math.exp(score) for score in scores) for score in scores]
+[2m│[0m     action = 0 if probs[0] > probs[1] else 1
+[2m│[0m     print(f"State {state}: Action {action} (prob: {probs[action]:.2f})")
+[2m│[0m 
+[2m│[0m But the problem says "textual policy visualization for each state".
+[2m│[0m 
+[2m│[0m Similarly for value function.
+[2m│[0m 
+[2m│[0m Value function summary: print the critic values for each state.
+[2m│[0m 
+[2m│[0m So:
+[2m│[0m 
+[2m│[0m print("Value function summary:")
+[2m│[0m for state in range(10):
+[2m│[0m     print(f"State {state}: {critic[state]:.2f}")
+[2m│[0m 
+[2m│[0m Then, learning progress summary: e.g., average reward per episode.
+[2m│[0m 
+[2m│[0m Now, the CSV.
+[2m│[0m 
+[2m│[0m Write generation_report.csv with columns: episode, total_reward, steps, termination.
+[2m│[0m 
+[2m│[0m So the code:
+[2m│[0m 
+[2m│[0m with open('generation_report.csv', 'w', newline='') as f:
+[2m│[0m     writer = csv.writer(f)
+[2m│[0m     writer.writerow(['episode', 'total_reward', 'steps', 'termination'])
+[2m│[0m     for ep in episodes:
+[2m│[0m         writer.writerow([
+[2m│[0m             ep['episode'],
+[2m│[0m             ep['total_reward'],
+[2m│[0m             ep['steps'],
+[2m│[0m             ep['termination']
+[2m│[0m         ])
+[2m│[0m 
+[2m│[0m Now, the main block.
+[2m│[0m 
+[2m│[0m The code must run directly when executed.
+[2m│[0m 
+[2m│[0m So:
+[2m│[0m 
+[2m│[0m if __name__ == '__main__':
+[2m│[0m     # Initialize parameters
+[2m│[0m     gamma = 0.9
+[2m│[0m     alpha_critic = 0.1
+[2m│[0m     alpha_actor = 0.01
+[2m│[0m     random.seed(42)
+[2m│[0m 
+[2m│[0m     # Initialize actor and critic
+[2m│[0m     actor = {s: [0.0, 0.0] for s in range(10)}
+[2m│[0m     critic = {s: 0.0 for s in range(10)}
+[2m│[0m 
+[2m│[0m     # Training loop
+[2m│[0m     episodes = []
+[2m│[0m     for episode in range(150):
+[2m│[0m         env = GridWorldEnv()
+[2m│[0m         state = env.reset()
+[2m│[0m         total_reward = 0
+[2m│[0m         steps = 0
+[2m│[0m         done = False
+[2m│[0m         while not done and steps < 40:
+[2m│[0m             action = select_action(state, actor)
+[2m│[0m             next_state, reward, done = env.step(action)
+[2m│[0m             total_reward += reward
+[2m│[0m             steps += 1
+[2m│[0m             delta = reward + gamma * critic[next_state] - critic[state]
+[2m│[0m             critic[state] += alpha_critic * delta
+[2m│[0m             scores = actor[state]
+[2m│[0m             exp_scores = [math.exp(score) for score in scores]
+[2m│[0m             prob = exp_scores[action] / sum(exp_scores)
+[2m│[0m             actor[state][action] += alpha_actor * delta * prob
+[2m│[0m         termination = "goal" if next_state == 9 else "timeout"
+[2m│[0m         episodes.append({
+[2m│[0m             "episode": episode + 1,
+[2m│[0m             "total_reward": total_reward,
+[2m│[0m             "steps": steps,
+[2m│[0m             "termination": termination
+[2m│[0m         })
+[2m│[0m 
+[2m│[0m     # Evaluation
+[2m│[0m     env_eval = GridWorldEnv()
+[2m│[0m     total_rewards = []
+[2m│[0m     steps_list = []
+[2m│[0m     for _ in range(10):
+[2m│[0m         state = env_eval.reset()
+[2m│[0m         total_reward = 0
+[2m│[0m         steps = 0
+[2m│[0m         done = False
+[2m│[0m         while not done:
+[2m│[0m             scores = actor[state]
+[2m│[0m             action = 0 if scores[0] > scores[1] else 1
+[2m│[0m             next_state, reward, done = env_eval.step(action)
+[2m│[0m             total_reward += reward
+[2m│[0m             steps += 1
+[2m│[0m         total_rewards.append(total_reward)
+[2m│[0m         steps_list.append(steps)
+[2m│[0m 
+[2m│[0m     # Print visualizations
+[2m│[0m     print("Policy visualization:")
+[2m│[0m     for state in range(10):
+[2m│[0m         scores = actor[state]
+[2m│[0m         exp_scores = [math.exp(score) for score in scores]
+[2m│[0m         total = sum(exp_scores)
+[2m│[0m         probs = [exp_score / total for exp_score in exp_scores]
+[2m│[0m         action = 0 if probs[0] > probs[1] else 1
+[2m│[0m         print(f"State {state}: Action {action} (prob: {probs[action]:.2f})")
+[2m│[0m 
+[2m│[0m     print("\nValue function summary:")
+[2m│[0m     for state in range(10):
+[2m│[0m         print(f"State {state}: {critic[state]:.2f}")
+[2m│[0m 
+[2m│[0m     print("\nLearning progress summary:")
+[2m│[0m     avg_reward = sum(ep['total_reward'] for ep in episodes) / len(episodes)
+[2m│[0m     avg_steps = sum(ep['steps'] for ep in episodes) / len(episodes)
+[2m│[0m     print(f"Average reward: {avg_reward:.2f}")
+[2m│[0m     print(f"Average steps: {avg_steps:.2f}")
+[2m│[0m 
+[2m│[0m     # Write CSV
+[2m│[0m     with open('generation_report.csv', 'w', newline='') as f:
+[2m│[0m         writer = csv.writer(f)
+[2m│[0m         writer.writerow(['episode', 'total_reward', 'steps', 'termination'])
+[2m│[0m         for ep in episodes:
+[2m│[0m             writer.writerow([
+[2m│[0m                 ep['episode'],
+[2m│[0m                 ep['total_reward'],
+[2m│[0m                 ep['steps'],
+[2m│[0m                 ep['termination']
+[2m│[0m             ])
+[2m│[0m 
+[2m│[0m Wait, but in the training loop, the 'next_state' is the state after the step. However, in the code above, the 'next_state' is the last state after the step. But in the while loop, the last step is when done is True.
+[2m│[0m 
+[2m│[0m But the problem is that in the code, the 'next_state' is the state after the step, but when the episode ends, the next_state is the goal (9) or timeout.
+[2m│[0m 
+[2m│[0m But in the code, the 'next_state' is the state where the episode ends.
+[2m│[0m 
+[2m│[0m So for the termination reason, if next_state == 9, then it's "goal", else "timeout".
+[2m│[0m 
+[2m│[0m But in the code, the 'next_state' is the state after the step.
+[2m│[0m 
+[2m│[0m Wait, in the step function, when the agent takes an action, the next_state is computed. For example, if the agent is at state 8 and takes action 1 (right), next_state is 9.
+[2m│[0m 
+[2m│[0m So in the training loop, the 'next_state' is the state where the episode ends.
+[2m│[0m 
+[2m│[0m So the code for termination is correct.
+[2m│[0m 
+[2m│[0m But there's a problem in the training loop: the 'next_state' is the state after the step, but the code uses 'next_state' to compute the critic update.
+[2m│[0m 
+[2m│[0m Wait, the critic update uses critic[next_state], which is correct.
+[2m│[0m 
+[2m│[0m But in the code, the 'next_state' is the state after the step.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, potential issues.
+[2m│[0m 
+[2m│[0m In the training loop, the 'steps' variable is incremented after the step. But the problem says max_steps=40. So steps starts at 0, and after 40 steps, the episode ends.
+[2m│[0m 
+[2m│[0m In the code, the while loop condition is "not done and steps < 40". So steps is the number of steps taken.
+[2m│[0m 
+[2m│[0m Wait, in the code:
+[2m│[0m 
+[2m│[0m steps starts at 0.
+[2m│[0m 
+[2m│[0m In the while loop:
+[2m│[0m 
+[2m│[0m - steps is incremented by 1 after the step.
+[2m│[0m 
+[2m│[0m So after 40 steps, the loop breaks.
+[2m│[0m 
+[2m│[0m But the problem says max_steps=40, so the episode ends after 40 steps.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Another potential issue: the environment's step function returns done as True when the next state is 9 (goal) or when steps > max_steps.
+[2m│[0m 
+[2m│[0m But in the code, the environment's step function increments steps, so steps starts at 0.
+[2m│[0m 
+[2m│[0m In the training loop, the 'steps' variable is the number of steps taken in the episode.
+[2m│[0m 
+[2m│[0m Wait, the code for the training loop:
+[2m│[0m 
+[2m│[0m state = env.reset() → steps=0
+[2m│[0m 
+[2m│[0m Then, in the while loop:
+[2m│[0m 
+[2m│[0m steps starts at 0.
+[2m│[0m 
+[2m│[0m For each iteration:
+[2m│[0m 
+[2m│[0m - steps += 1
+[2m│[0m 
+[2m│[0m So after the first step, steps=1.
+[2m│[0m 
+[2m│[0m The loop runs while not done and steps < 40.
+[2m│[0m 
+[2m│[0m So the maximum steps is 40.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, the code for the select_action function.
+[2m│[0m 
+[2m│[0m But in the code, the select_action function uses math.exp.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Python 3.11+", so math.exp is available.
+[2m│[0m 
+[2m│[0m Now, let's check the code for possible errors.
+[2m│[0m 
+[2m│[0m In the training loop, the 'next_state' is the state after the step. But when the episode ends, the next_state is the goal (9) or the state where the timeout occurs.
+[2m│[0m 
+[2m│[0m But in the code, the 'next_state' is the state after the step.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Another point: the problem says "Print episode reward, steps, and termination reason for every episode".
+[2m│[0m 
+[2m│[0m In the code, the 'total_reward' is the sum of rewards for the episode.
+[2m│[0m 
+[2m│[0m The 'steps' is the number of steps taken.
+[2m│[0m 
+[2m│[0m The 'termination' is "goal" if next_state ==9, else "timeout".
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, the code for the evaluation loop.
+[2m│[0m 
+[2m│[0m During evaluation, the agent uses greedy action selection.
+[2m│[0m 
+[2m│[0m In the code, for each state, the action is selected as the one with higher score.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, the CSV file.
+[2m│[0m 
+[2m│[0m The code writes 'generation_report.csv' in the current directory.
+[2m│[0m 
+[2m│[0m The problem says "relative path only".
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, let's write the complete code.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Do not use placeholders such as ...".
+[2m│[0m 
+[2m│[0m So the code must be complete.
+[2m│[0m 
+[2m│[0m Let's check the imports.
+[2m│[0m 
+[2m│[0m The code uses:
+[2m│[0m 
+[2m│[0m from typing import Dict, List, Tuple, Optional, Any
+[2m│[0m import random
+[2m│[0m import math
+[2m│[0m import csv
+[2m│[0m from pathlib import Path
+[2m│[0m 
+[2m│[0m But the problem says "Python 3.11+", so pathlib is available.
+[2m│[0m 
+[2m│[0m But in the code, the CSV writing uses csv, which is standard.
+[2m│[0m 
+[2m│[0m Wait, the problem says "CSV reporting: Write generation_report.csv to the current working directory. Use a relative path only."
+[2m│[0m 
+[2m│[0m So the code uses 'with open('generation_report.csv', ...)'.
+[2m│[0m 
+[2m│[0m Now, the code.
+[2m│[0m 
+[2m│[0m Let's structure the code.
+[2m│[0m 
+[2m│[0m First, the environment class.
+[2m│[0m 
+[2m│[0m Then, the select_action function.
+[2m│[0m 
+[2m│[0m Then, the main block.
+[2m│[0m 
+[2m│[0m Wait, but the problem says "the complete contents of a single file named algorithm.py".
+[2m│[0m 
+[2m│[0m So the code should be in one file.
+[2m│[0m 
+[2m│[0m Let's code it.
+[2m│[0m 
+[2m│[0m But the problem says "Do not use placeholders such as ...".
+[2m│[0m 
+[2m│[0m So the code must be complete.
+[2m│[0m 
+[2m│[0m Let me write the code.
+[2m│[0m 
+[2m│[0m Potential issues:
+[2m│[0m 
+[2m│[0m - The environment class's step function returns (next_state, reward, done). In the code, the done is a boolean.
+[2m│[0m 
+[2m│[0m - The training loop uses the same environment instance for each episode.
+[2m│[0m 
+[2m│[0m - The actor and critic are updated in place.
+[2m│[0m 
+[2m│[0m Let's code.
+[2m│[0m 
+[2m│[0m Wait, in the training loop, the 'next_state' is the state after the step. But when the episode ends, the next_state is the goal (9) or the state where the timeout occurs.
+[2m│[0m 
+[2m│[0m But in the code, the 'next_state' is the state where the episode ends.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Another point: the problem says "Use random.seed(42)". So the code sets random.seed(42) in the main block.
+[2m│[0m 
+[2m│[0m Now, the code.
+[2m│[0m 
+[2m│[0m Let me write the code.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Do not use placeholders such as ...".
+[2m│[0m 
+[2m│[0m So the code must be complete.
+[2m│[0m 
+[2m│[0m Let's write the code.
+[2m│[0m 
+[2m│[0m I think this should work.
+[2m│[0m 
+[2m│[0m Let me check for possible errors.
+[2m│[0m 
+[2m│[0m In the select_action function, the code uses random.choices([0, 1], weights=probs, k=1)[0]. But random.choices returns a list of length k. Since k=1, it's a list with one element.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m But the code uses math.exp.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, the code.
+[2m│[0m 
+[2m│[0m Let's write it.
+[2m│[0m 
+[2m│[0m Note: The problem says "Include all required imports at the top of the file."
+[2m│[0m 
+[2m│[0m So the imports are:
+[2m│[0m 
+[2m│[0m from typing import Dict, List, Tuple, Optional, Any
+[2m│[0m import random
+[2m│[0m import math
+[2m│[0m import csv
+[2m│[0m 
+[2m│[0m Wait, pathlib is not needed for writing CSV with 'generation_report.csv' as a relative path.
+[2m│[0m 
+[2m│[0m The code uses 'with open('generation_report.csv', ...)' which is a relative path.
+[2m│[0m 
+[2m│[0m So no need for pathlib.
+[2m│[0m 
+[2m│[0m So the imports are:
+[2m│[0m 
+[2m│[0m from typing import Dict, List, Tuple, Optional, Any
+[2m│[0m import random
+[2m│[0m import math
+[2m│[0m import csv
+[2m│[0m 
+[2m│[0m Now, the code.
+[2m│[0m 
+[2m│[0m Let's write the code.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Use modern builtin generics (list[int], dict[str, object])".
+[2m│[0m 
+[2m│[0m So the actor is a dict with keys int, values list[float].
+[2m│[0m 
+[2m│[0m The critic is a dict with keys int, values float.
+[2m│[0m 
+[2m│[0m The code uses:
+[2m│[0m 
+[2m│[0m actor: Dict[int, List[float]] = {s: [0.0, 0.0] for s in range(10)}
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Let me write the code.
+[2m│[0m 
+[2m│[0m One more thing: the problem says "Print a textual policy visualization for each state".
+[2m│[0m 
+[2m│[0m The code prints for each state the action and probability.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, the code.
+[2m│[0m 
+[2m│[0m Let me write it.
+[2m│[0m 
+[2m│[0m Wait, the problem says "Do not use placeholders such as ...".
+[2m│[0m 
+[2m│[0m So the code must be complete.
+[2m│[0m 
+[2m│[0m Let's code it.
+[2m│[0m 
+[2m│[0m I think this should work.
+[2m│[0m 
+[2m│[0m Let me check the training loop.
+[2m│[0m 
+[2m│[0m For each episode, the code resets the environment, then runs up to 40 steps.
+[2m│[0m 
+[2m│[0m The TD error is computed as (reward + gamma * critic[next_state] - critic[state]).
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m The actor update uses the probability of the selected action.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, the code.
+[2m│[0m 
+[2m│[0m Here's the code:
+[2m│[0m 
+[2m│[0m ```python
+[2m│[0m from typing import Dict, List, Tuple, Optional, Any
+[2m│[0m import random
+[2m│[0m import math
+[2m│[0m import csv
+[2m│[0m 
+[2m│[0m class GridWorldEnv:
+[2m│[0m     def __init__(self, max_steps: int = 40):
+[2m│[0m         self.state = 0
+[2m│[0m         self.steps = 0
+[2m│[0m         self.max_steps = max_steps
+[2m│[0m 
+[2m│[0m     def reset(self) -> int:
+[2m│[0m         self.state = 0
+[2m│[0m         self.steps = 0
+[2m│[0m         return self.state
+[2m│[0m 
+[2m│[0m     def step(self, action: int) -> Tuple[int, float, bool]:
+[2m│[0m         self.steps += 1
+[2m│[0m         if self.steps > self.max_steps:
+[2m│[0m             done = True
+[2m│[0m             reward = -1
+[2m│[0m         else:
+[2m│[0m             if action == 0:
+[2m│[0m                 next_state = max(0, self.state - 1)
+[2m│[0m             else:
+[2m│[0m                 next_state = min(9, self.state + 1)
+[2m│[0m             if next_state == 9:
+[2m│[0m                 done = True
+[2m│[0m                 reward = 10
+[2m│[0m             else:
+[2m│[0m                 done = False
+[2m│[0m                 reward = -1
+[2m│[0m             self.state = next_state
+[2m│[0m         return next_state, reward, done
+[2m│[0m 
+[2m│[0m def select_action(state: int, actor: Dict[int, List[float]], temperature: float = 1.0) -> int:
+[2m│[0m     scores = actor[state]
+[2m│[0m     exp_scores = [math.exp(score) for score in scores]
+[2m│[0m     total = sum(exp_scores)
+[2m│[0m     probs = [exp_score / total for exp_score in exp_scores]
+[2m│[0m     return random.choices([0, 1], weights=probs, k=1)[0]
+[2m│[0m 
+[2m│[0m if __name__ == '__main__':
+[2m│[0m     gamma = 0.9
+[2m│[0m     alpha_critic = 0.1
+[2m│[0m     alpha_actor = 0.01
+[2m│[0m     random.seed(42)
+[2m│[0m 
+[2m│[0m     actor = {s: [0.0, 0.0] for s in range(10)}
+[2m│[0m     critic = {s: 0.0 for s in range(10)}
+[2m│[0m 
+[2m│[0m     episodes = []
+[2m│[0m     for episode in range(150):
+[2m│[0m         env = GridWorldEnv()
+[2m│[0m         state = env.reset()
+[2m│[0m         total_reward = 0
+[2m│[0m         steps = 0
+[2m│[0m         done = False
+[2m│[0m         while not done and steps < 40:
+[2m│[0m             action = select_action(state, actor)
+[2m│[0m             next_state, reward, done = env.step(action)
+[2m│[0m             total_reward += reward
+[2m│[0m             steps += 1
+[2m│[0m             delta = reward + gamma * critic[next_state] - critic[state]
+[2m│[0m             critic[state] += alpha_critic * delta
+[2m│[0m             scores = actor[state]
+[2m│[0m             exp_scores = [math.exp(score) for score in scores]
+[2m│[0m             prob = exp_scores[action] / sum(exp_scores)
+[2m│[0m             actor[state][action] += alpha_actor * delta * prob
+[2m│[0m         termination = "goal" if next_state == 9 else "timeout"
+[2m│[0m         episodes.append({
+[2m│[0m             "episode": episode + 1,
+[2m│[0m             "total_reward": total_reward,
+[2m│[0m             "steps": steps,
+[2m│[0m             "termination": termination
+[2m│[0m         })
+[2m│[0m 
+[2m│[0m     # Evaluation
+[2m│[0m     env_eval = GridWorldEnv()
+[2m│[0m     total_rewards = []
+[2m│[0m     steps_list = []
+[2m│[0m     for _ in range(10):
+[2m│[0m         state = env_eval.reset()
+[2m│[0m         total_reward = 0
+[2m│[0m         steps = 0
+[2m│[0m         done = False
+[2m│[0m         while not done:
+[2m│[0m             scores = actor[state]
+[2m│[0m             action = 0 if scores[0] > scores[1] else 1
+[2m│[0m             next_state, reward, done = env_eval.step(action)
+[2m│[0m             total_reward += reward
+[2m│[0m             steps += 1
+[2m│[0m         total_rewards.append(total_reward)
+[2m│[0m         steps_list.append(steps)
+[2m│[0m 
+[2m│[0m     # Print visualizations
+[2m│[0m     print("Policy visualization:")
+[2m│[0m     for state in range(10):
+[2m│[0m         scores = actor[state]
+[2m│[0m         exp_scores = [math.exp(score) for score in scores]
+[2m│[0m         total = sum(exp_scores)
+[2m│[0m         probs = [exp_score / total for exp_score in exp_scores]
+[2m│[0m         action = 0 if probs[0] > probs[1] else 1
+[2m│[0m         print(f"State {state}: Action {action} (prob: {probs[action]:.2f})")
+[2m│[0m 
+[2m│[0m     print("\nValue function summary:")
+[2m│[0m     for state in range(10):
+[2m│[0m         print(f"State {state}: {critic[state]:.2f}")
+[2m│[0m 
+[2m│[0m     print("\nLearning progress summary:")
+[2m│[0m     avg_reward = sum(ep['total_reward'] for ep in episodes) / len(episodes)
+[2m│[0m     avg_steps = sum(ep['steps'] for ep in episodes) / len(episodes)
+[2m│[0m     print(f"Average reward: {avg_reward:.2f}")
+[2m│[0m     print(f"Average steps: {avg_steps:.2f}")
+[2m│[0m 
+[2m│[0m     # Write CSV
+[2m│[0m     with open('generation_report.csv', 'w', newline='') as f:
+[2m│[0m         writer = csv.writer(f)
+[2m│[0m         writer.writerow(['episode', 'total_reward', 'steps', 'termination'])
+[2m│[0m         for ep in episodes:
+[2m│[0m             writer.writerow([
+[2m│[0m                 ep['episode'],
+[2m│[0m                 ep['total_reward'],
+[2m│[0m                 ep['steps'],
+[2m│[0m                 ep['termination']
+[2m│[0m             ])
+[2m│[0m ```
+[2m│[0m 
+[2m│[0m Wait, but in the training loop, the 'next_state' is the state after the step. However, when the episode ends, the 'next_state' is the state where the episode ended.
+[2m│[0m 
+[2m│[0m But in the code, the 'next_state' is the state after the step. For example, if the agent takes an action that leads to state 9, then next_state is 9.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Another point: the problem says "Episode terminates at goal or max_steps=40". So the max_steps is 40, meaning that the episode ends after 40 steps.
+[2m│[0m 
+[2m│[0m In the code, the environment's step function increments steps, and the loop runs while steps < 40.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Potential issue: the 'steps' variable in the training loop is incremented after the step. So the first step increments steps to 1.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Let me test mentally.
+[2m│[0m 
+[2m│[0m For example, episode starts at state 0.
+[2m│[0m 
+[2m│[0m Step 1: action taken, steps becomes 1.
+[2m│[0m 
+[2m│[0m If steps <40, loop continues.
+[2m│[0m 
+[2m│[0m After 40 steps, the loop breaks.
+[2m│[0m 
+[2m│[0m Yes.
+[2m│[0m 
+[2m│[0m Now, the code should work.
+[2m│[0m 
+[2m│[0m I think this meets all the requirements.
+[2m│[0m 
+[2m│[0m The code uses standard library only.
+[2m│[0m 
+[2m│[0m The main block runs the training, evaluation, visualizations, and CSV.
+[2m│[0m 
+[2m│[0m The CSV is written to the current directory.
+[2m│[0m 
+[2m│[0m The code is complete.
+[2m│[0m 
+[2m│[0m So the answer is the code above.
+╰─ end thinking (50385 chars · 162.6s)
+✓ generate (#1) 172.9s — model returned 4115 chars
+✓ bandit_update (#1) 0.1s — attempt=1 ctx=general_rl|csv|eval_visual_timeout_boundary_guard_short_training|qwen3:4b|edit|a0|pf:none|p:0|d:na arm=direct.baseline reward=+1.000 pulls=1 alpha=2.00 
+beta=1.00 mean=0.667
+✓ validate (#1) — attempt 1 passed
+✓ judge (#1) 13.9s — verdict=UNSURE confidence=0.00 accepted=True
+✓ complete (1/6) — algorithm.py validated after 1 attempt(s)
+                               Run result                               
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Key               ┃ Value                                            ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ task_id           │ 825001                                           │
+│ status            │ success                                          │
+│ changed_files     │ algorithm.py                                     │
+│ attempt_snapshots │ .mecha-agent/attempts/task-825001-attempt-000.py │
+│ total_attempts    │ 1                                                │
+│ max_attempts      │ 6                                                │
+│ primary_failure   │ NONE                                             │
+└───────────────────┴──────────────────────────────────────────────────┘
+ syntax: exit=0
+ undefined_name: exit=0
+ spec_contract: exit=0
+ import: exit=0
+ runtime: exit=0
+ behavior: exit=0
+semantic_score=1.00
+total_score=1.00
+primary_failure=UNKNOWN
+                                                                                 Judge                                                                                 
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Key                      ┃ Value                                                                                                                                    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ verdict                  │ UNSURE                                                                                                                                   │
+│ confidence               │ 0.00                                                                                                                                     │
+│ suspected_false_positive │ True                                                                                                                                     │
+│ primary_failure_guess    │ UNKNOWN                                                                                                                                  │
+│ report_path              │ /home/emirm/mkt4822-RL-term-project-agent-cli-codex/runs/custom_bandit_5_actor_critic_hard_reference_like/.mecha-agent/judge/latest.json │
+└──────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Judge reasons:
+- Judge response was not valid JSON.
