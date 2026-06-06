@@ -1,0 +1,38 @@
+Task: Build a stress-tested standalone Actor-Critic RL application.
+
+Environment:
+
+* 1D grid world with states 0..14.
+* Start state is 0.
+* Goal state is 14.
+* Actions are left and right.
+* Clamp boundary movement.
+* Reward is +15 at goal and -1 otherwise.
+* Episode ends at goal or max_steps=70.
+
+Actor-Critic:
+
+* Tabular actor preferences.
+* Tabular critic values.
+* Softmax training policy.
+* Greedy evaluation policy.
+* TD error update.
+
+Stress requirements:
+
+* Train for 500 episodes.
+* Evaluation must run for 20 episodes.
+* Every while-loop must include a hard max_steps guard.
+* Program must finish without infinite loops.
+* Standard library only.
+
+Outputs:
+
+* Print training summary every episode.
+* Print evaluation summary.
+* Generate generation_report.csv with episode, total_reward, steps, termination.
+* Include textual visualization of learned policy and values.
+* Include random.seed(42).
+* Include modern type hints.
+* Include if **name** == "**main**".
+* No placeholders.

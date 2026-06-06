@@ -1,0 +1,40 @@
+Task: Build a runnable Actor-Critic RL application that handles invalid action indices safely.
+
+Environment:
+
+* 1D grid world with states 0..9.
+* Start state is 0.
+* Goal state is 9.
+* Documented action space is {0, 1}.
+* Action 0 means left.
+* Action 1 means right.
+* If any action outside {0, 1} is passed to the transition helper, treat it as action 0 before moving.
+* Clamp state transitions to [0, 9].
+* Reward is +10 at goal and -1 otherwise.
+* Episode ends at goal or max_steps=35.
+
+Actor-Critic:
+
+* Use tabular actor preferences.
+* Use tabular critic state values.
+* Use softmax action selection for valid actions during training.
+* Use greedy valid-action selection during evaluation.
+* Use TD error to update actor and critic.
+
+Safety test:
+
+* During training only, with small probability, pass a random integer from {0, 1, 2, 3} into the transition helper to test invalid-action safety.
+* Learning updates should still be based on valid actions 0 and 1.
+
+Requirements:
+
+* Train for 100 episodes.
+* Evaluate for 10 greedy episodes.
+* Print reward, steps, and termination reason for every training episode.
+* Generate generation_report.csv with episode, total_reward, steps, termination.
+* Include textual policy/value summaries.
+* Include random.seed(42).
+* Include if **name** == "**main**".
+* Use type hints.
+* Standard library only.
+* No infinite loops.
