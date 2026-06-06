@@ -1,0 +1,66 @@
+Task: Build a complete runnable Actor-Critic reinforcement learning application.
+
+Important constraints:
+
+* Python standard library only.
+* No third-party packages.
+* Standalone script.
+* Must run directly when executed.
+
+Environment specification:
+
+* Create a 1D grid world with states 0..9.
+* Start state is 0.
+* Goal state is 9.
+* Actions are 0 = left and 1 = right.
+* Clamp boundary transitions.
+* Reward is +10 at goal and -1 otherwise.
+* Episode terminates at goal or max_steps=40.
+* Clearly distinguish goal termination from timeout termination.
+
+Actor-Critic specification:
+
+* Actor must be represented by tabular policy preferences.
+* Critic must be represented by tabular state-value estimates.
+* Training must use softmax action selection.
+* Evaluation must use greedy action selection.
+* Use TD error to update both actor and critic.
+* Include reasonable learning rates and discount factor.
+* Use random.seed(42).
+
+Training pipeline:
+
+* Train for 150 episodes.
+* Print episode reward, steps, and termination reason for every episode.
+* Enforce max_steps in every loop.
+
+Evaluation pipeline:
+
+* Run 10 greedy evaluation episodes after training.
+* Print evaluation reward and step summaries.
+* Report average evaluation reward and average steps.
+
+Visualization:
+
+* Print a textual policy visualization for each state.
+* Print a textual value-function summary.
+* Print a short learning progress summary.
+
+CSV reporting:
+
+* Write generation_report.csv to the current working directory.
+* Use a relative path only.
+* CSV columns: episode, total_reward, steps, termination.
+
+Main execution:
+
+* Include if **name** == "**main**".
+* Running the script must execute training, evaluation, visualization, and CSV generation.
+
+Quality expectations:
+
+* Modular, readable code.
+* Modern Python type hints.
+* Practical inline documentation for major components.
+* No placeholders.
+* No incomplete functions.

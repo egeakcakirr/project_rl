@@ -1,0 +1,34 @@
+Task: Build an Actor-Critic RL application focused on sparse reward learning.
+
+Environment:
+
+* 1D grid world with states 0..9.
+* Start state is 0.
+* Goal state is 9.
+* Actions: 0 = left, 1 = right.
+* Clamp states to [0, 9].
+* Reward is +20 only when the goal is reached.
+* Reward is -1 for all non-goal steps.
+* Episode ends at goal or max_steps=45.
+
+Actor-Critic:
+
+* Actor is tabular policy preferences.
+* Critic is tabular state values.
+* Use softmax training policy.
+* Use TD error for learning.
+* Include actor and critic learning rates.
+* Use gamma discounting.
+
+Requirements:
+
+* Train for 150 episodes.
+* Evaluate for 10 greedy episodes.
+* Print reward, steps, and termination reason for each training episode.
+* Generate generation_report.csv with episode, total_reward, steps, termination.
+* Include textual learning summary.
+* Include random.seed(42).
+* Include if **name** == "**main**".
+* Use type hints.
+* Standard library only.
+* Avoid infinite loops.
