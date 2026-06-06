@@ -1,0 +1,28 @@
+ syntax: exit=0
+ undefined_name: exit=0
+ spec_contract: exit=0
+ import: exit=0
+ runtime: exit=1
+Episode 0: Reward=-28, Steps=39, Termination=goal
+Episode 1: Reward=-40, Steps=40, Termination=timeout
+Episode 2: Reward=-40, Steps=40, Termination=timeout
+Episode 3: Reward=-40, Steps=40, Termination=timeout
+Episode 4: Reward=-40, Steps=40, Termination=timeout
+Episode 5: Reward=-40, Steps=40, Termination=timeout
+Episode 6: Reward=-40, Steps=40, Termination=timeout
+Episode 7: Reward=-40, Steps=40, Termination=timeout
+Episode 8: Reward=-6, Steps=17, Termination=goal
+Episode 9: Reward=-40, Steps=40, Termination=timeout
+Episode 10: Reward=-40, Steps=40, Termination=timeout
+Episode 11: Reward=-21, Steps=32, Termination=goal
+Episode 12: Reward=-40, Steps=40, Termination=timeout
+Episode 13: Reward=-40, Steps=40, Termination=timeout
+Episode 14: Reward=-40, Steps=40, Termination=timeout
+Episode 15: Reward=-40, Steps=40, Termination=timeout
+Episode 16: Reward=-40, Steps=40, Termination=timeout
+Episode 17: Reward=-40, Steps=40, Termination=timeout
+Episode 18: Reward=-3, Steps=14, Termination=goal
+Episode 19: Reward=-40, Steps=40, Termination=timeout
+semantic_score=0.00
+total_score=0.00
+primary_failure=RUNTIME

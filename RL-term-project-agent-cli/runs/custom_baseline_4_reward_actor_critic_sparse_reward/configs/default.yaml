@@ -1,0 +1,12 @@
+repo:
+  target_file: algorithm.py
+agent:
+  max_repairs: 3
+memory:
+  path: .mecha-agent/memory.sqlite
+direct:
+  request_timeout_sec: 600
+learning:
+  enabled: false
+  mode: "off"
+  persist: false
