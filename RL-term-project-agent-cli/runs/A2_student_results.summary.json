@@ -1,0 +1,72 @@
+{
+  "baseline": {
+    "episodes": 3,
+    "success_rate": 1.0,
+    "syntax_pass_rate": 1.0,
+    "import_pass_rate": 1.0,
+    "runtime_pass_rate": 1.0,
+    "mean_attempts": 3.6666666666666665,
+    "mean_reward": 0.0,
+    "mean_duration_sec": 1959.497020855997,
+    "failure_breakdown": {}
+  },
+  "baseline_per_family": {
+    "general_rl": {
+      "episodes": 3,
+      "success_rate": 1.0,
+      "mean_attempts": 3.6666666666666665
+    }
+  },
+  "bandit": {
+    "episodes": 3,
+    "success_rate": 1.0,
+    "syntax_pass_rate": 1.0,
+    "import_pass_rate": 1.0,
+    "runtime_pass_rate": 1.0,
+    "mean_attempts": 1.3333333333333333,
+    "mean_reward": 0.9833333333333333,
+    "mean_duration_sec": 814.7195968386659,
+    "failure_breakdown": {}
+  },
+  "bandit_per_family": {
+    "general_rl": {
+      "episodes": 3,
+      "success_rate": 1.0,
+      "mean_attempts": 1.3333333333333333
+    }
+  },
+  "bandit_posterior": [
+    {
+      "context_key": "general_rl|qwen3:4b|edit|a0|pf:none|p:0|d:na",
+      "arm_id": "direct.baseline",
+      "alpha": 2.0,
+      "beta": 1.0,
+      "pulls": 1,
+      "mean": 0.6666666666666666
+    },
+    {
+      "context_key": "general_rl|qwen3:4b|edit|a0|pf:none|p:0|d:na",
+      "arm_id": "direct.cool",
+      "alpha": 2.0,
+      "beta": 1.0,
+      "pulls": 1,
+      "mean": 0.6666666666666666
+    },
+    {
+      "context_key": "general_rl|qwen3:4b|edit|a0|pf:none|p:0|d:na",
+      "arm_id": "direct.cold",
+      "alpha": 1.45,
+      "beta": 1.55,
+      "pulls": 1,
+      "mean": 0.48333333333333334
+    },
+    {
+      "context_key": "general_rl|qwen3:4b|edit|a1|pf:type|p:1|d:fast",
+      "arm_id": "direct.baseline",
+      "alpha": 1.975,
+      "beta": 1.025,
+      "pulls": 1,
+      "mean": 0.6583333333333333
+    }
+  ]
+}
