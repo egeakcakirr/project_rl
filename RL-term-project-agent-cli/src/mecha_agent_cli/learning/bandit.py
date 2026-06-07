@@ -311,7 +311,12 @@ class ThompsonBandit:
         )
 
     def _select_thompson(self, *, context_key: str, rows: dict[str, ArmStat]) -> Arm:
-        """Select by Beta posterior sampling."""
+        """Select by Beta posterior sampling with context-aware arm boosting.
+        Arms that match structural features of the current task receive a
+        prior boost to their sample, making them more likely to be selected
+        before sufficient pull data is collected.
+        """
+        boost_map = _context_arm_boosts(context_key)
         best_arm = self._baseline_arm()
         best_sample = float("-inf")
         for arm in self.arms:
@@ -320,6 +325,7 @@ class ThompsonBandit:
                 max(stat.alpha, 1e-9),
                 max(stat.beta, 1e-9),
             )
+            sample += boost_map.get(arm.arm_id, 0.0)
             if sample > best_sample:
                 best_arm = arm
                 best_sample = sample
@@ -419,5 +425,34 @@ def _context_has_previous_runtime_failure(context_key: str) -> bool:
     """Return whether the compact context reports a prior runtime failure."""
     return "|pf:runtime" in context_key.lower()
 
+def _context_arm_boosts(context_key: str) -> dict[str, float]:
+    """Return per-arm sample boosts derived from context key features.
+
+    Boosts are small positive offsets added to Thompson samples before
+    comparison. They do not override learned posteriors — they only
+    give context-relevant arms a mild head-start during cold exploration.
+    """
+    boosts: dict[str, float] = {}
+    key = context_key.lower()
+
+    if "general_rl" in key or "actor_critic" in key:
+        boosts["direct.long_stable"] = 0.15
+        boosts["direct.balanced"] = 0.08
+
+    if "csv" in key or "visual" in key:
+        boosts["direct.long_stable"] = boosts.get("direct.long_stable", 0.0) + 0.08
+        boosts["direct.balanced"] = boosts.get("direct.balanced", 0.0) + 0.05
+
+    if "sparse_reward" in key or "boundary" in key:
+        boosts["direct.cold_precise"] = 0.10
+
+    if "timeout" in key or "stress" in key:
+        boosts["direct.repeat_guard"] = 0.10
+
+    if "|pf:runtime" in key:
+        boosts["direct.cold"] = 0.12
+        boosts["direct.cool"] = 0.08
+
+    return boosts
 
 __all__ = ["ArmStat", "BanditStore", "ThompsonBandit"]
