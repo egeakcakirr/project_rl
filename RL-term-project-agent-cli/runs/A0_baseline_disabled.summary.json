@@ -1,0 +1,39 @@
+{
+  "baseline": {
+    "episodes": 3,
+    "success_rate": 1.0,
+    "syntax_pass_rate": 1.0,
+    "import_pass_rate": 1.0,
+    "runtime_pass_rate": 1.0,
+    "mean_attempts": 1.3333333333333333,
+    "mean_reward": 0.0,
+    "mean_duration_sec": 756.1769033990034,
+    "failure_breakdown": {}
+  },
+  "baseline_per_family": {
+    "generic": {
+      "episodes": 3,
+      "success_rate": 1.0,
+      "mean_attempts": 1.3333333333333333
+    }
+  },
+  "bandit": {
+    "episodes": 3,
+    "success_rate": 1.0,
+    "syntax_pass_rate": 1.0,
+    "import_pass_rate": 1.0,
+    "runtime_pass_rate": 1.0,
+    "mean_attempts": 1.3333333333333333,
+    "mean_reward": 1.0,
+    "mean_duration_sec": 1017.4050449159986,
+    "failure_breakdown": {}
+  },
+  "bandit_per_family": {
+    "generic": {
+      "episodes": 3,
+      "success_rate": 1.0,
+      "mean_attempts": 1.3333333333333333
+    }
+  },
+  "bandit_posterior": []
+}
